@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指定避難所・避難場所マップ</title>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/flatgeobuf@3.31.0/dist/flatgeobuf-geojson.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        .legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .legend-item {
+            cursor: pointer;
+            user-select: none;
+        }
+        .legend-item.disabled {
+            opacity: 0.4;
+        }
+        .legend-item.disabled .legend-color {
+            background-color: #ccc !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="legend">
+        <h3>凡例</h3>
+        <div class="legend-item" id="hinanjyo-toggle">
+            <div class="legend-color" style="background-color: #FF6B6B;"></div>
+            <span>指定避難所</span>
+        </div>
+        <div class="legend-item" id="hinanbasyo-toggle">
+            <div class="legend-color" style="background-color: #4ECDC4;"></div>
+            <span>指定緊急避難場所</span>
+        </div>
+    </div>
+
+    <script>
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    'raster-tiles': {
+                        type: 'raster',
+                        tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'
+                    }
+                },
+                layers: [{
+                    id: 'background',
+                    type: 'raster',
+                    source: 'raster-tiles',
+                    minzoom: 0,
+                    maxzoom: 18
+                }]
+            },
+            center: [139.7, 35.7],
+            zoom: 10
+        });
+
+        map.on('load', async () => {
+            // 指定避難所を読み込み
+            try {
+                const hinanjyoResponse = await fetch('./siteihinanjyo.fgb');
+                const hinanjyoIterator = flatgeobuf.deserialize(hinanjyoResponse.body);
+                const hinanjyoFeatures = [];
+                for await (const feature of hinanjyoIterator) {
+                    hinanjyoFeatures.push(feature);
+                }
+
+                map.addSource('hinanjyo', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: hinanjyoFeatures
+                    }
+                });
+
+                map.addLayer({
+                    id: 'hinanjyo-layer',
+                    type: 'circle',
+                    source: 'hinanjyo',
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': '#FF6B6B',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 2,
+                        'circle-opacity': 0.8
+                    }
+                });
+            } catch (error) {
+                console.error('指定避難所の読み込みエラー:', error);
+            }
+
+            // 指定緊急避難場所を読み込み
+            try {
+                const hinanbasyoResponse = await fetch('./siteihinanbasyo.fgb');
+                const hinanbasyoIterator = flatgeobuf.deserialize(hinanbasyoResponse.body);
+                const hinanbasyoFeatures = [];
+                for await (const feature of hinanbasyoIterator) {
+                    hinanbasyoFeatures.push(feature);
+                }
+
+                map.addSource('hinanbasyo', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: hinanbasyoFeatures
+                    }
+                });
+
+                map.addLayer({
+                    id: 'hinanbasyo-layer',
+                    type: 'circle',
+                    source: 'hinanbasyo',
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': '#4ECDC4',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 2,
+                        'circle-opacity': 0.8
+                    }
+                });
+
+                // 全ての地物が表示されるようにズーム調整
+                const allFeatures = [...hinanjyoFeatures, ...hinanbasyoFeatures];
+                if (allFeatures.length > 0) {
+                    const bounds = new maplibregl.LngLatBounds();
+                    allFeatures.forEach(feature => {
+                        if (feature.geometry.type === 'Point') {
+                            bounds.extend(feature.geometry.coordinates);
+                        }
+                    });
+                    map.fitBounds(bounds, { padding: 50 });
+                }
+            } catch (error) {
+                console.error('指定緊急避難場所の読み込みエラー:', error);
+            }
+
+            // ポップアップ表示
+            map.on('click', 'hinanjyo-layer', (e) => {
+                const properties = e.features[0].properties;
+                const html = Object.entries(properties)
+                    .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                    .join('<br>');
+                new maplibregl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(html)
+                    .addTo(map);
+            });
+
+            map.on('click', 'hinanbasyo-layer', (e) => {
+                const properties = e.features[0].properties;
+                const html = Object.entries(properties)
+                    .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                    .join('<br>');
+                new maplibregl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(html)
+                    .addTo(map);
+            });
+
+            // カーソル変更
+            map.on('mouseenter', 'hinanjyo-layer', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'hinanjyo-layer', () => {
+                map.getCanvas().style.cursor = '';
+            });
+            map.on('mouseenter', 'hinanbasyo-layer', () => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on('mouseleave', 'hinanbasyo-layer', () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            // レイヤー表示切り替え
+            const hinanjyoToggle = document.getElementById('hinanjyo-toggle');
+            const hinanbasyoToggle = document.getElementById('hinanbasyo-toggle');
+
+            hinanjyoToggle.addEventListener('click', () => {
+                const visibility = map.getLayoutProperty('hinanjyo-layer', 'visibility');
+                if (visibility === 'visible' || visibility === undefined) {
+                    map.setLayoutProperty('hinanjyo-layer', 'visibility', 'none');
+                    hinanjyoToggle.classList.add('disabled');
+                } else {
+                    map.setLayoutProperty('hinanjyo-layer', 'visibility', 'visible');
+                    hinanjyoToggle.classList.remove('disabled');
+                }
+            });
+
+            hinanbasyoToggle.addEventListener('click', () => {
+                const visibility = map.getLayoutProperty('hinanbasyo-layer', 'visibility');
+                if (visibility === 'visible' || visibility === undefined) {
+                    map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'none');
+                    hinanbasyoToggle.classList.add('disabled');
+                } else {
+                    map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'visible');
+                    hinanbasyoToggle.classList.remove('disabled');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
