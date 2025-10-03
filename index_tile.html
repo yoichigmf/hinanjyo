@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指定避難所・避難場所マップ（PMTiles版）</title>
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        .legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+        .legend h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .legend-item {
+            cursor: pointer;
+            user-select: none;
+        }
+        .legend-item.disabled {
+            opacity: 0.4;
+        }
+        .legend-item.disabled .legend-color {
+            background-color: #ccc !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="legend">
+        <h3>凡例</h3>
+        <div class="legend-item" id="hinanjyo-toggle">
+            <div class="legend-color" style="background-color: #FF6B6B;"></div>
+            <span>指定避難所</span>
+        </div>
+        <div class="legend-item" id="hinanbasyo-toggle">
+            <div class="legend-color" style="background-color: #4ECDC4;"></div>
+            <span>指定緊急避難場所</span>
+        </div>
+    </div>
+
+    <script>
+        // 立川駅の座標
+        const TACHIKAWA_STATION = [139.4073, 35.6976];
+
+        let map;
+        let hinanjyoLayerVisible = true;
+        let hinanbasyoLayerVisible = true;
+
+        // PMTiles を直接読み込む関数
+        async function loadPMTiles() {
+            const p = new pmtiles.PMTiles('./pmtiles/hinanL.pmtiles');
+
+            // PMTilesプロトコルに登録
+            const protocol = new pmtiles.Protocol();
+            protocol.add(p);
+            maplibregl.addProtocol("pmtiles", protocol.tile);
+
+            return p;
+        }
+
+        // 現在位置を取得してマップを初期化
+        async function initializeMap() {
+            // PMTilesを読み込み
+            const pmtilesSource = await loadPMTiles();
+            let initialCenter = TACHIKAWA_STATION;
+
+            // Geolocation APIで現在位置を取得
+            if (navigator.geolocation) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            timeout: 5000,
+                            maximumAge: 0
+                        });
+                    });
+                    initialCenter = [position.coords.longitude, position.coords.latitude];
+                } catch (error) {
+                    console.log('位置情報取得失敗、立川駅を中心に表示します:', error.message);
+                }
+            }
+
+            map = new maplibregl.Map({
+                container: 'map',
+                style: {
+                    version: 8,
+                    sources: {
+                        'raster-tiles': {
+                            type: 'raster',
+                            tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
+                            tileSize: 256,
+                            attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'
+                        },
+                        'hinan': {
+                            type: 'vector',
+                            url: 'pmtiles://./pmtiles/hinanL.pmtiles',
+                            attribution: '避難所データ'
+                        }
+                    },
+                    layers: [
+                        {
+                            id: 'background',
+                            type: 'raster',
+                            source: 'raster-tiles',
+                            minzoom: 0,
+                            maxzoom: 18
+                        },
+                        {
+                            id: 'hinanjyo-layer',
+                            type: 'circle',
+                            source: 'hinan',
+                            'source-layer': '指定避難所',
+                            paint: {
+                                'circle-radius': 8,
+                                'circle-color': '#FF6B6B',
+                                'circle-stroke-color': '#fff',
+                                'circle-stroke-width': 2,
+                                'circle-opacity': 0.8
+                            }
+                        },
+                        {
+                            id: 'hinanbasyo-layer',
+                            type: 'circle',
+                            source: 'hinan',
+                            'source-layer': '指定緊急避難場所',
+                            paint: {
+                                'circle-radius': 8,
+                                'circle-color': '#4ECDC4',
+                                'circle-stroke-color': '#fff',
+                                'circle-stroke-width': 2,
+                                'circle-opacity': 0.8
+                            }
+                        }
+                    ]
+                },
+                center: initialCenter,
+                zoom: 12
+            });
+
+            map.on('load', () => {
+                // デバッグ: ソースとレイヤーの情報を確認
+                console.log('Map loaded');
+                console.log('Sources:', map.getStyle().sources);
+                console.log('Layers:', map.getStyle().layers);
+
+                // エラーハンドリング
+                map.on('error', (e) => {
+                    console.error('Map error:', e);
+                });
+
+                // ソースのメタデータを確認
+                map.on('sourcedata', (e) => {
+                    if (e.sourceId === 'hinan' && e.isSourceLoaded) {
+                        console.log('PMTiles source loaded');
+                        const source = map.getSource('hinan');
+                        if (source && source.vectorLayerIds) {
+                            console.log('Available vector layers:', source.vectorLayerIds);
+                        }
+                    }
+                });
+
+                // データが読み込まれたか確認
+                map.on('data', (e) => {
+                    if (e.sourceId === 'hinan') {
+                        console.log('Hinan data event:', e.dataType);
+                    }
+                });
+
+                // ポップアップ表示
+                map.on('click', 'hinanjyo-layer', (e) => {
+                    const properties = e.features[0].properties;
+                    const html = Object.entries(properties)
+                        .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                        .join('<br>');
+                    new maplibregl.Popup()
+                        .setLngLat(e.lngLat)
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
+                map.on('click', 'hinanbasyo-layer', (e) => {
+                    const properties = e.features[0].properties;
+                    const html = Object.entries(properties)
+                        .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
+                        .join('<br>');
+                    new maplibregl.Popup()
+                        .setLngLat(e.lngLat)
+                        .setHTML(html)
+                        .addTo(map);
+                });
+
+                // カーソル変更
+                map.on('mouseenter', 'hinanjyo-layer', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'hinanjyo-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+                map.on('mouseenter', 'hinanbasyo-layer', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'hinanbasyo-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+
+                // レイヤー表示切り替え
+                const hinanjyoToggle = document.getElementById('hinanjyo-toggle');
+                const hinanbasyoToggle = document.getElementById('hinanbasyo-toggle');
+
+                hinanjyoToggle.addEventListener('click', () => {
+                    hinanjyoLayerVisible = !hinanjyoLayerVisible;
+                    if (hinanjyoLayerVisible) {
+                        map.setLayoutProperty('hinanjyo-layer', 'visibility', 'visible');
+                        hinanjyoToggle.classList.remove('disabled');
+                    } else {
+                        map.setLayoutProperty('hinanjyo-layer', 'visibility', 'none');
+                        hinanjyoToggle.classList.add('disabled');
+                    }
+                });
+
+                hinanbasyoToggle.addEventListener('click', () => {
+                    hinanbasyoLayerVisible = !hinanbasyoLayerVisible;
+                    if (hinanbasyoLayerVisible) {
+                        map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'visible');
+                        hinanbasyoToggle.classList.remove('disabled');
+                    } else {
+                        map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'none');
+                        hinanbasyoToggle.classList.add('disabled');
+                    }
+                });
+            });
+        }
+
+        // マップを初期化
+        initializeMap();
+    </script>
+</body>
+</html>
