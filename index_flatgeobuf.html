@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>指定避難所・避難場所マップ（PMTiles版）</title>
+    <title>指定避難所・避難場所マップ</title>
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
+    <script src="https://unpkg.com/flatgeobuf@3.31.0/dist/flatgeobuf-geojson.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -83,9 +83,6 @@
 
         // 現在位置を取得してマップを初期化
         async function initializeMap() {
-            // PMTilesプロトコルを登録
-            const protocol = new pmtiles.Protocol();
-            maplibregl.addProtocol("pmtiles", protocol.tile);
             let initialCenter = TACHIKAWA_STATION;
 
             // Geolocation APIで現在位置を取得
@@ -114,117 +111,106 @@
                             tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
                             tileSize: 256,
                             attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'
-                        },
-                        'hinan': {
-                            type: 'vector',
-                            url: 'pmtiles://pmtiles/hinanL.pmtiles',
-                            attribution: '避難所データ'
                         }
                     },
-                    layers: [
-                        {
-                            id: 'background',
-                            type: 'raster',
-                            source: 'raster-tiles',
-                            minzoom: 0,
-                            maxzoom: 18
-                        },
-                        {
-                            id: 'hinanjyo-layer',
-                            type: 'circle',
-                            source: 'hinan',
-                            'source-layer': '指定避難所',
-                            paint: {
-                                'circle-radius': 8,
-                                'circle-color': '#FF6B6B',
-                                'circle-stroke-color': '#fff',
-                                'circle-stroke-width': 2,
-                                'circle-opacity': 0.8
-                            }
-                        },
-                        {
-                            id: 'hinanbasyo-layer',
-                            type: 'circle',
-                            source: 'hinan',
-                            'source-layer': '指定緊急避難場所',
-                            paint: {
-                                'circle-radius': 8,
-                                'circle-color': '#4ECDC4',
-                                'circle-stroke-color': '#fff',
-                                'circle-stroke-width': 2,
-                                'circle-opacity': 0.8
-                            }
-                        },
-                        {
-                            id: 'hinanjyo-label',
-                            type: 'symbol',
-                            source: 'hinan',
-                            'source-layer': '指定避難所',
-                            layout: {
-                                'text-field': ['get', '施設・場所名'],
-                                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                                'text-size': 12,
-                                'text-offset': [0, 1.5],
-                                'text-anchor': 'top'
-                            },
-                            paint: {
-                                'text-color': '#000000',
-                                'text-halo-color': '#ffffff',
-                                'text-halo-width': 2
-                            }
-                        },
-                        {
-                            id: 'hinanbasyo-label',
-                            type: 'symbol',
-                            source: 'hinan',
-                            'source-layer': '指定緊急避難場所',
-                            layout: {
-                                'text-field': ['get', '施設・場所名'],
-                                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                                'text-size': 12,
-                                'text-offset': [0, 1.5],
-                                'text-anchor': 'top'
-                            },
-                            paint: {
-                                'text-color': '#000000',
-                                'text-halo-color': '#ffffff',
-                                'text-halo-width': 2
-                            }
-                        }
-                    ]
+                    layers: [{
+                        id: 'background',
+                        type: 'raster',
+                        source: 'raster-tiles',
+                        minzoom: 0,
+                        maxzoom: 18
+                    }]
                 },
                 center: initialCenter,
                 zoom: 12
             });
 
-            map.on('load', () => {
-                // デバッグ: ソースとレイヤーの情報を確認
-                console.log('Map loaded');
-                console.log('Sources:', map.getStyle().sources);
-                console.log('Layers:', map.getStyle().layers);
-
-                // エラーハンドリング
-                map.on('error', (e) => {
-                    console.error('Map error:', e);
-                });
-
-                // ソースのメタデータを確認
-                map.on('sourcedata', (e) => {
-                    if (e.sourceId === 'hinan' && e.isSourceLoaded) {
-                        console.log('PMTiles source loaded');
-                        const source = map.getSource('hinan');
-                        if (source && source.vectorLayerIds) {
-                            console.log('Available vector layers:', source.vectorLayerIds);
-                        }
+            map.on('load', async () => {
+                // 空のGeoJSONソースを作成
+                map.addSource('hinanjyo', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: []
                     }
                 });
 
-                // データが読み込まれたか確認
-                map.on('data', (e) => {
-                    if (e.sourceId === 'hinan') {
-                        console.log('Hinan data event:', e.dataType);
+                map.addLayer({
+                    id: 'hinanjyo-layer',
+                    type: 'circle',
+                    source: 'hinanjyo',
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': '#FF6B6B',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 2,
+                        'circle-opacity': 0.8
                     }
                 });
+
+                map.addSource('hinanbasyo', {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: []
+                    }
+                });
+
+                map.addLayer({
+                    id: 'hinanbasyo-layer',
+                    type: 'circle',
+                    source: 'hinanbasyo',
+                    paint: {
+                        'circle-radius': 8,
+                        'circle-color': '#4ECDC4',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 2,
+                        'circle-opacity': 0.8
+                    }
+                });
+
+                // ラベルレイヤーを追加
+                map.addLayer({
+                    id: 'hinanjyo-label',
+                    type: 'symbol',
+                    source: 'hinanjyo',
+                    layout: {
+                        'text-field': ['get', '施設・場所名'],
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 12,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    paint: {
+                        'text-color': '#000000',
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 2
+                    }
+                });
+
+                map.addLayer({
+                    id: 'hinanbasyo-label',
+                    type: 'symbol',
+                    source: 'hinanbasyo',
+                    layout: {
+                        'text-field': ['get', '施設・場所名'],
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 12,
+                        'text-offset': [0, 1.5],
+                        'text-anchor': 'top'
+                    },
+                    paint: {
+                        'text-color': '#000000',
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 2
+                    }
+                });
+
+                // 初回読み込み
+                await loadVisibleFeatures();
+
+                // 地図移動時に再読み込み
+                map.on('moveend', loadVisibleFeatures);
 
                 // ポップアップ表示
                 map.on('click', 'hinanjyo-layer', (e) => {
@@ -293,6 +279,55 @@
                     }
                 });
             });
+        }
+
+        // 表示領域に基づいてFlatGeobufファイルから地物を読み込む
+        async function loadVisibleFeatures() {
+            const bounds = map.getBounds();
+            const bbox = {
+                minX: bounds.getWest(),
+                minY: bounds.getSouth(),
+                maxX: bounds.getEast(),
+                maxY: bounds.getNorth()
+            };
+
+            // 指定避難所を読み込み
+            if (hinanjyoLayerVisible) {
+                try {
+                    const hinanjyoResponse = await fetch('./siteihinanjyo.fgb');
+                    const hinanjyoIterator = flatgeobuf.deserialize(hinanjyoResponse.body, bbox);
+                    const hinanjyoFeatures = [];
+                    for await (const feature of hinanjyoIterator) {
+                        hinanjyoFeatures.push(feature);
+                    }
+
+                    map.getSource('hinanjyo').setData({
+                        type: 'FeatureCollection',
+                        features: hinanjyoFeatures
+                    });
+                } catch (error) {
+                    console.error('指定避難所の読み込みエラー:', error);
+                }
+            }
+
+            // 指定緊急避難場所を読み込み
+            if (hinanbasyoLayerVisible) {
+                try {
+                    const hinanbasyoResponse = await fetch('./siteihinanbasyo.fgb');
+                    const hinanbasyoIterator = flatgeobuf.deserialize(hinanbasyoResponse.body, bbox);
+                    const hinanbasyoFeatures = [];
+                    for await (const feature of hinanbasyoIterator) {
+                        hinanbasyoFeatures.push(feature);
+                    }
+
+                    map.getSource('hinanbasyo').setData({
+                        type: 'FeatureCollection',
+                        features: hinanbasyoFeatures
+                    });
+                } catch (error) {
+                    console.error('指定緊急避難場所の読み込みエラー:', error);
+                }
+            }
         }
 
         // マップを初期化

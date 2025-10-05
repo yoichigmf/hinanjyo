@@ -3,293 +3,138 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>指定避難所・避難場所マップ</title>
-    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
-    <script src="https://unpkg.com/flatgeobuf@3.31.0/dist/flatgeobuf-geojson.min.js"></script>
+    <title>避難所マップ - バージョン選択</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            font-family: sans-serif;
-        }
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 100%;
-        }
-        .legend {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            z-index: 1;
-        }
-        .legend h3 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-        }
-        .legend-item {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             display: flex;
+            justify-content: center;
             align-items: center;
-            margin: 5px 0;
-            font-size: 12px;
         }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            margin-right: 8px;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        .container {
+            max-width: 800px;
+            padding: 40px;
         }
-        .legend-item {
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 50px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .cards {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            width: 300px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
             cursor: pointer;
-            user-select: none;
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
-        .legend-item.disabled {
-            opacity: 0.4;
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
         }
-        .legend-item.disabled .legend-color {
-            background-color: #ccc !important;
+        .card h2 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+        .card .tech {
+            color: #764ba2;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+        .card .description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .card .features {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+        .card .features li {
+            color: #555;
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        .card .features li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .badge.recommended {
+            background: #4caf50;
+            color: white;
+        }
+        .badge.classic {
+            background: #ff9800;
+            color: white;
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="legend">
-        <h3>凡例</h3>
-        <div class="legend-item" id="hinanjyo-toggle">
-            <div class="legend-color" style="background-color: #FF6B6B;"></div>
-            <span>指定避難所</span>
-        </div>
-        <div class="legend-item" id="hinanbasyo-toggle">
-            <div class="legend-color" style="background-color: #4ECDC4;"></div>
-            <span>指定緊急避難場所</span>
+    <div class="container">
+        <h1>🗺️ 指定避難所・避難場所マップ</h1>
+        <div class="cards">
+            <a href="index_tile.html" class="card">
+                <h2>PMTiles版</h2>
+                <div class="tech">PMTiles + MapLibre GL JS</div>
+                <span class="badge recommended">推奨</span>
+                <div class="description">
+                    ベクタータイル形式で効率的にデータを配信。高速で軽量なマップ表示を実現します。
+                </div>
+                <ul class="features">
+                    <li>高速読み込み</li>
+                    <li>タイル形式で効率的</li>
+                    <li>スムーズなズーム</li>
+                    <li>施設名ラベル表示</li>
+                </ul>
+            </a>
+
+            <a href="index_flatgeobuf.html" class="card">
+                <h2>FlatGeobuf版</h2>
+                <div class="tech">FlatGeobuf + MapLibre GL JS</div>
+                <span class="badge classic">従来型</span>
+                <div class="description">
+                    表示領域に応じて動的にデータを読み込む方式。大容量データにも対応します。
+                </div>
+                <ul class="features">
+                    <li>領域フィルタリング</li>
+                    <li>動的データ読み込み</li>
+                    <li>位置情報対応</li>
+                    <li>施設名ラベル表示</li>
+                </ul>
+            </a>
         </div>
     </div>
-
-    <script>
-        // 立川駅の座標
-        const TACHIKAWA_STATION = [139.4073, 35.6976];
-
-        let map;
-        let hinanjyoLayerVisible = true;
-        let hinanbasyoLayerVisible = true;
-
-        // 現在位置を取得してマップを初期化
-        async function initializeMap() {
-            let initialCenter = TACHIKAWA_STATION;
-
-            // Geolocation APIで現在位置を取得
-            if (navigator.geolocation) {
-                try {
-                    const position = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            timeout: 5000,
-                            maximumAge: 0
-                        });
-                    });
-                    initialCenter = [position.coords.longitude, position.coords.latitude];
-                } catch (error) {
-                    console.log('位置情報取得失敗、立川駅を中心に表示します:', error.message);
-                }
-            }
-
-            map = new maplibregl.Map({
-                container: 'map',
-                style: {
-                    version: 8,
-                    sources: {
-                        'raster-tiles': {
-                            type: 'raster',
-                            tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
-                            tileSize: 256,
-                            attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>'
-                        }
-                    },
-                    layers: [{
-                        id: 'background',
-                        type: 'raster',
-                        source: 'raster-tiles',
-                        minzoom: 0,
-                        maxzoom: 18
-                    }]
-                },
-                center: initialCenter,
-                zoom: 12
-            });
-
-            map.on('load', async () => {
-                // 空のGeoJSONソースを作成
-                map.addSource('hinanjyo', {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: []
-                    }
-                });
-
-                map.addLayer({
-                    id: 'hinanjyo-layer',
-                    type: 'circle',
-                    source: 'hinanjyo',
-                    paint: {
-                        'circle-radius': 8,
-                        'circle-color': '#FF6B6B',
-                        'circle-stroke-color': '#fff',
-                        'circle-stroke-width': 2,
-                        'circle-opacity': 0.8
-                    }
-                });
-
-                map.addSource('hinanbasyo', {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: []
-                    }
-                });
-
-                map.addLayer({
-                    id: 'hinanbasyo-layer',
-                    type: 'circle',
-                    source: 'hinanbasyo',
-                    paint: {
-                        'circle-radius': 8,
-                        'circle-color': '#4ECDC4',
-                        'circle-stroke-color': '#fff',
-                        'circle-stroke-width': 2,
-                        'circle-opacity': 0.8
-                    }
-                });
-
-                // 初回読み込み
-                await loadVisibleFeatures();
-
-                // 地図移動時に再読み込み
-                map.on('moveend', loadVisibleFeatures);
-
-                // ポップアップ表示
-                map.on('click', 'hinanjyo-layer', (e) => {
-                    const properties = e.features[0].properties;
-                    const html = Object.entries(properties)
-                        .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
-                        .join('<br>');
-                    new maplibregl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(html)
-                        .addTo(map);
-                });
-
-                map.on('click', 'hinanbasyo-layer', (e) => {
-                    const properties = e.features[0].properties;
-                    const html = Object.entries(properties)
-                        .map(([key, value]) => `<strong>${key}:</strong> ${value}`)
-                        .join('<br>');
-                    new maplibregl.Popup()
-                        .setLngLat(e.lngLat)
-                        .setHTML(html)
-                        .addTo(map);
-                });
-
-                // カーソル変更
-                map.on('mouseenter', 'hinanjyo-layer', () => {
-                    map.getCanvas().style.cursor = 'pointer';
-                });
-                map.on('mouseleave', 'hinanjyo-layer', () => {
-                    map.getCanvas().style.cursor = '';
-                });
-                map.on('mouseenter', 'hinanbasyo-layer', () => {
-                    map.getCanvas().style.cursor = 'pointer';
-                });
-                map.on('mouseleave', 'hinanbasyo-layer', () => {
-                    map.getCanvas().style.cursor = '';
-                });
-
-                // レイヤー表示切り替え
-                const hinanjyoToggle = document.getElementById('hinanjyo-toggle');
-                const hinanbasyoToggle = document.getElementById('hinanbasyo-toggle');
-
-                hinanjyoToggle.addEventListener('click', () => {
-                    hinanjyoLayerVisible = !hinanjyoLayerVisible;
-                    if (hinanjyoLayerVisible) {
-                        map.setLayoutProperty('hinanjyo-layer', 'visibility', 'visible');
-                        hinanjyoToggle.classList.remove('disabled');
-                    } else {
-                        map.setLayoutProperty('hinanjyo-layer', 'visibility', 'none');
-                        hinanjyoToggle.classList.add('disabled');
-                    }
-                });
-
-                hinanbasyoToggle.addEventListener('click', () => {
-                    hinanbasyoLayerVisible = !hinanbasyoLayerVisible;
-                    if (hinanbasyoLayerVisible) {
-                        map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'visible');
-                        hinanbasyoToggle.classList.remove('disabled');
-                    } else {
-                        map.setLayoutProperty('hinanbasyo-layer', 'visibility', 'none');
-                        hinanbasyoToggle.classList.add('disabled');
-                    }
-                });
-            });
-        }
-
-        // 表示領域に基づいてFlatGeobufファイルから地物を読み込む
-        async function loadVisibleFeatures() {
-            const bounds = map.getBounds();
-            const bbox = {
-                minX: bounds.getWest(),
-                minY: bounds.getSouth(),
-                maxX: bounds.getEast(),
-                maxY: bounds.getNorth()
-            };
-
-            // 指定避難所を読み込み
-            if (hinanjyoLayerVisible) {
-                try {
-                    const hinanjyoResponse = await fetch('./siteihinanjyo.fgb');
-                    const hinanjyoIterator = flatgeobuf.deserialize(hinanjyoResponse.body, bbox);
-                    const hinanjyoFeatures = [];
-                    for await (const feature of hinanjyoIterator) {
-                        hinanjyoFeatures.push(feature);
-                    }
-
-                    map.getSource('hinanjyo').setData({
-                        type: 'FeatureCollection',
-                        features: hinanjyoFeatures
-                    });
-                } catch (error) {
-                    console.error('指定避難所の読み込みエラー:', error);
-                }
-            }
-
-            // 指定緊急避難場所を読み込み
-            if (hinanbasyoLayerVisible) {
-                try {
-                    const hinanbasyoResponse = await fetch('./siteihinanbasyo.fgb');
-                    const hinanbasyoIterator = flatgeobuf.deserialize(hinanbasyoResponse.body, bbox);
-                    const hinanbasyoFeatures = [];
-                    for await (const feature of hinanbasyoIterator) {
-                        hinanbasyoFeatures.push(feature);
-                    }
-
-                    map.getSource('hinanbasyo').setData({
-                        type: 'FeatureCollection',
-                        features: hinanbasyoFeatures
-                    });
-                } catch (error) {
-                    console.error('指定緊急避難場所の読み込みエラー:', error);
-                }
-            }
-        }
-
-        // マップを初期化
-        initializeMap();
-    </script>
 </body>
 </html>
